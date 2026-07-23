@@ -6,6 +6,8 @@ Architecture and implementation changes should land through reviewed pull reques
 
 ## Deployment architecture
 
+- [Deployment workflow presentation](docs/architecture/deployment-workflow-presentation.md)
+- [Standalone deployment workflow SVG](docs/architecture/deployment-workflow.svg)
 - [Target monorepo development and deployment workflow](docs/architecture/deployment-workflow-target.md)
 - [Deployment workflow visual guide](docs/architecture/deployment-workflow-visual-guide.md)
 - [Standalone HTML/SVG workflow explainer](docs/architecture/deployment-workflow-visual.html)
