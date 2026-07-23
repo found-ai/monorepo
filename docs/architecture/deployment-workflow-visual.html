@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Deployment promotion workflow</title>
+  <style>
+    :root {
+      --background: #f8f9fa;
+      --surface: #ffffff;
+      --text: #212529;
+      --muted: #5c6470;
+      --border: #d8dde3;
+      --line: #65707c;
+      --primary: #0066cc;
+      --primary-dark: #004f9f;
+      --feature-bg: #eaf3fc;
+      --feature-border: #2674b8;
+      --staging-bg: #fff4d6;
+      --staging-border: #9a6500;
+      --production-bg: #e8f5ec;
+      --production-border: #287a44;
+      --danger-bg: #fff0ed;
+      --danger-border: #b63d26;
+      --code-bg: #f1f3f5;
+      --focus: #005fcc;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    a { color: var(--primary-dark); }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible, .table-wrap:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+      border-radius: 3px;
+    }
+
+    .page-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner, main, .footer-inner {
+      width: min(1200px, calc(100% - 48px));
+      margin: 0 auto;
+    }
+
+    .header-inner { padding: 40px 0 32px; }
+
+    h1, h2, h3 { line-height: 1.2; text-wrap: balance; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.035em; }
+    h2 { margin: 0 0 16px; font-size: clamp(1.45rem, 2.5vw, 2rem); letter-spacing: -0.02em; }
+    h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    p { margin: 0 0 16px; }
+
+    .summary { max-width: 78ch; color: var(--muted); font-size: 1.08rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: var(--muted); font-size: 0.92rem; }
+
+    .jump-nav {
+      margin-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .jump-nav a {
+      display: inline-block;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      text-decoration: none;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .jump-nav a:hover { border-color: var(--primary); background: var(--feature-bg); }
+
+    main { padding: 32px 0 64px; }
+    section { scroll-margin-top: 20px; margin-top: 48px; }
+    section:first-child { margin-top: 0; }
+
+    .callout {
+      border-left: 4px solid var(--primary);
+      padding: 14px 16px;
+      background: var(--surface);
+      margin-bottom: 24px;
+    }
+
+    .callout strong { display: block; margin-bottom: 3px; }
+
+    .diagram-shell {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .diagram-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .diagram-title strong { color: var(--text); }
+    .workflow-svg { display: block; width: 100%; height: auto; }
+    .workflow-mobile { display: none; }
+
+    svg text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; fill: var(--text); }
+    .svg-stage { font-size: 18px; font-weight: 700; }
+    .svg-label { font-size: 13px; font-weight: 650; }
+    .svg-small { font-size: 11px; fill: #46515c; }
+    .svg-note { font-size: 12px; font-weight: 650; }
+    .node { stroke-width: 1.5; }
+    .feature-node { fill: var(--feature-bg); stroke: var(--feature-border); }
+    .staging-node { fill: var(--staging-bg); stroke: var(--staging-border); }
+    .production-node { fill: var(--production-bg); stroke: var(--production-border); }
+    .neutral-node { fill: #fff; stroke: #88929d; }
+    .danger-node { fill: var(--danger-bg); stroke: var(--danger-border); }
+    .connector { fill: none; stroke: var(--line); stroke-width: 2; marker-end: url(#arrow); }
+    .connector-dashed { fill: none; stroke: var(--line); stroke-width: 1.75; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+    .gate { fill: #fff; stroke-width: 2; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+    .swatch { width: 16px; height: 12px; border: 1px solid; border-radius: 3px; }
+    .swatch.feature { background: var(--feature-bg); border-color: var(--feature-border); }
+    .swatch.staging { background: var(--staging-bg); border-color: var(--staging-border); }
+    .swatch.production { background: var(--production-bg); border-color: var(--production-border); }
+    .swatch.human { background: #fff; border: 2px solid var(--text); transform: rotate(45deg); width: 11px; height: 11px; border-radius: 0; margin: 0 3px; }
+
+    .rule-grid, .support-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .rule, .support-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 18px;
+    }
+
+    .rule .number {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      margin-bottom: 12px;
+      border-radius: 50%;
+      background: var(--text);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .rule p, .support-card p { color: var(--muted); font-size: 0.94rem; margin: 0; }
+
+    .stage-stripe-feature { border-top: 4px solid var(--feature-border); }
+    .stage-stripe-staging { border-top: 4px solid var(--staging-border); }
+    .stage-stripe-production { border-top: 4px solid var(--production-border); }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { padding: 13px 15px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+    th { background: #f1f3f5; font-size: 0.86rem; }
+    td { font-size: 0.91rem; }
+    tr:last-child td { border-bottom: 0; }
+    .yes, .no { font-weight: 700; white-space: nowrap; }
+    .yes { color: #216b3a; }
+    .no { color: #91331f; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { padding: 0.1em 0.32em; border-radius: 4px; background: var(--code-bg); font-size: 0.88em; }
+    pre {
+      margin: 12px 0 0;
+      padding: 14px 16px;
+      max-width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--code-bg);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .manifest-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .manifest-layout > *, .support-grid > *, .rule-grid > *, .worked-example > * {
+      min-width: 0;
+    }
+
+    .manifest-list, .failure-list { margin: 0; padding-left: 20px; }
+    .manifest-list li, .failure-list li { margin: 8px 0; }
+
+    .worked-example {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .example-input { padding: 20px; background: var(--code-bg); border-right: 1px solid var(--border); }
+    .example-input ul { margin: 10px 0 0; padding-left: 20px; }
+    .example-steps { margin: 0; padding: 20px 24px 20px 44px; }
+    .example-steps li { margin: 0 0 10px; padding-left: 4px; }
+    .example-steps li:last-child { margin-bottom: 0; }
+
+    .failure-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 20px;
+      border: 1px solid var(--danger-border);
+      border-radius: 9px;
+      background: var(--danger-bg);
+    }
+
+    .failure-box h3 { color: #812d1c; }
+    .source-links { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+
+    footer { border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); }
+    .footer-inner { padding: 20px 0; font-size: 0.86rem; }
+
+    @media (max-width: 820px) {
+      .header-inner, main, .footer-inner { width: min(100% - 28px, 720px); }
+      .header-inner { padding: 28px 0 24px; }
+      main { padding-top: 24px; }
+      section { margin-top: 36px; }
+      .workflow-desktop { display: none; }
+      .workflow-mobile { display: block; }
+      .diagram-title { display: block; }
+      .diagram-title span { display: block; margin-top: 2px; }
+      .rule-grid { grid-template-columns: 1fr; }
+      .support-grid { grid-template-columns: 1fr 1fr; }
+      .manifest-layout { grid-template-columns: 1fr; }
+      .worked-example { grid-template-columns: 1fr; }
+      .example-input { border-right: 0; border-bottom: 1px solid var(--border); }
+      .failure-box { grid-template-columns: 1fr; gap: 12px; }
+    }
+
+    @media (max-width: 520px) {
+      body { font-size: 15px; }
+      h1 { font-size: 2rem; }
+      .meta { display: block; }
+      .meta span { display: block; margin-top: 5px; }
+      .jump-nav { display: grid; grid-template-columns: 1fr 1fr; }
+      .jump-nav a { text-align: center; }
+      .support-grid { grid-template-columns: 1fr; }
+      .diagram-shell { border-radius: 8px; }
+      .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .example-steps { padding-left: 38px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    @media print {
+      @page { size: landscape; margin: 12mm; }
+      body { background: #fff; color: #000; font-size: 10pt; }
+      .header-inner, main, .footer-inner { width: 100%; }
+      .page-header, footer { border-color: #aaa; }
+      .header-inner { padding: 0 0 16px; }
+      main { padding: 14px 0 0; }
+      .jump-nav { display: none; }
+      section { margin-top: 24px; break-inside: avoid; }
+      h1 { font-size: 24pt; }
+      h2 { font-size: 16pt; }
+      a { color: #000; text-decoration: underline; }
+      .diagram-shell, .rule, .support-card, .table-wrap, .worked-example, .failure-box { box-shadow: none; break-inside: avoid; }
+      .workflow-desktop { display: block; }
+      .workflow-mobile { display: none; }
+      .diagram-title { padding: 8px 12px; }
+      .legend { padding: 8px 12px; }
+      .rule, .support-card { padding: 12px; }
+      .rule-grid, .support-grid { gap: 10px; }
+      th, td { padding: 8px 10px; }
+      .source-links { display: block; }
+      .source-links a { margin-right: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="header-inner">
+      <h1>Deployment promotion workflow</h1>
+      <p class="summary">Code integrates on <code>main</code> without deploying a shared environment. Humans explicitly promote a staged, immutable release through two automation-maintained pull requests.</p>
+      <div class="meta">
+        <span>Proposed alignment artifact · 22 July 2026</span>
+        <span><a href="https://linear.app/foundai/issue/TECH-652/review-paved-path-deployments-and-define-unified-deployment">TECH-652</a></span>
+        <span><a href="deployment-workflow-target.md">Source specification</a></span>
+        <span><a href="deployment-workflow-visual-guide.md">Visual guide</a></span>
+      </div>
+      <nav class="jump-nav" aria-label="Page sections">
+        <a href="#workflow">Workflow</a>
+        <a href="#rules">Core rules</a>
+        <a href="#matrix">Branch matrix</a>
+        <a href="#mechanics">Mechanics</a>
+        <a href="#example">Example</a>
+        <a href="#recovery">Recovery</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="workflow" aria-labelledby="workflow-heading">
+      <h2 id="workflow-heading">From local change to production</h2>
+      <div class="callout">
+        <strong>The invariant</strong>
+        <span>Staging builds the release candidate once. Production promotes that exact candidate—same manifest, digests, bundles, migration assets, release notes, and affected stack list.</span>
+      </div>
+
+      <figure class="diagram-shell">
+        <figcaption class="diagram-title">
+          <strong>Primary workflow</strong>
+          <span>Solid arrows are promotion flow; dashed arrows are lifecycle or controller actions.</span>
+        </figcaption>
+
+        <svg class="workflow-svg workflow-desktop" viewBox="0 0 1160 650" role="img" aria-labelledby="desktop-title desktop-desc">
+          <title id="desktop-title">Deployment workflow across feature and main, staging, and production</title>
+          <desc id="desktop-desc">Local development leads to a feature pull request, checks, and an ephemeral preview. Merge to main causes no shared deployment and maintains one staging promotion pull request. A human merge builds affected deployables once, writes an immutable manifest, and deploys staging through Pulumi. Successful staging maintains one production promotion pull request. A human merge promotes the exact staging artifacts to production without rebuilding.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#65707c"></path>
+            </marker>
+          </defs>
+
+          <rect x="20" y="20" width="480" height="610" rx="10" fill="#f7fbff" stroke="#2674b8" stroke-width="2"></rect>
+          <rect x="520" y="20" width="300" height="610" rx="10" fill="#fffbef" stroke="#9a6500" stroke-width="2"></rect>
+          <rect x="840" y="20" width="300" height="610" rx="10" fill="#f4fbf6" stroke="#287a44" stroke-width="2"></rect>
+
+          <text class="svg-stage" x="44" y="55">1 · Feature / main</text>
+          <text class="svg-small" x="44" y="76">Develop, preview, review, integrate</text>
+          <text class="svg-stage" x="544" y="55">2 · Staging</text>
+          <text class="svg-small" x="544" y="76">Build once, verify candidate</text>
+          <text class="svg-stage" x="864" y="55">3 · Production</text>
+          <text class="svg-small" x="864" y="76">Promote exact candidate</text>
+
+          <rect class="node neutral-node" x="44" y="102" width="180" height="62" rx="8"></rect>
+          <text class="svg-label" x="134" y="128" text-anchor="middle">⌘ Local development</text>
+          <text class="svg-small" x="134" y="148" text-anchor="middle">production-shaped local path</text>
+
+          <path class="connector" d="M 224 133 H 270"></path>
+          <rect class="node feature-node" x="272" y="102" width="190" height="62" rx="8"></rect>
+          <text class="svg-label" x="367" y="128" text-anchor="middle">⑂ Feature branch</text>
+          <text class="svg-small" x="367" y="148" text-anchor="middle">ordinary development source</text>
+
+          <path class="connector" d="M 367 164 V 195"></path>
+          <rect class="node feature-node" x="272" y="197" width="190" height="66" rx="8"></rect>
+          <text class="svg-label" x="367" y="224" text-anchor="middle">PR → main</text>
+          <text class="svg-small" x="367" y="244" text-anchor="middle">Changeset required</text>
+
+          <path class="connector" d="M 272 230 H 226"></path>
+          <rect class="node neutral-node" x="44" y="197" width="180" height="92" rx="8"></rect>
+          <text class="svg-label" x="134" y="222" text-anchor="middle">✓ CI checks</text>
+          <text class="svg-small" x="134" y="243" text-anchor="middle">lint · test · build · policy</text>
+          <text class="svg-small" x="134" y="262" text-anchor="middle">Turbo affected task graph</text>
+          <text class="svg-small" x="134" y="279" text-anchor="middle">transitive dependents included</text>
+
+          <path class="connector" d="M 134 289 V 325"></path>
+          <rect class="node feature-node" x="44" y="327" width="180" height="70" rx="8"></rect>
+          <text class="svg-label" x="134" y="354" text-anchor="middle">◫ Ephemeral preview</text>
+          <text class="svg-small" x="134" y="375" text-anchor="middle">affected + preview-capable only</text>
+
+          <path class="connector" d="M 224 362 H 270"></path>
+          <polygon class="gate" points="367,318 411,362 367,406 323,362" stroke="#2674b8"></polygon>
+          <text class="svg-label" x="367" y="357" text-anchor="middle">Human</text>
+          <text class="svg-small" x="367" y="375" text-anchor="middle">merges PR</text>
+
+          <path class="connector" d="M 367 406 V 437"></path>
+          <rect class="node feature-node" x="272" y="439" width="190" height="74" rx="8"></rect>
+          <text class="svg-label" x="367" y="465" text-anchor="middle">⑂ main</text>
+          <text class="svg-note" x="367" y="485" text-anchor="middle">NO SHARED DEPLOY</text>
+          <text class="svg-small" x="367" y="503" text-anchor="middle">integration + versions only</text>
+
+          <path class="connector-dashed" d="M 134 397 V 550 H 224"></path>
+          <rect class="node danger-node" x="226" y="531" width="236" height="58" rx="8"></rect>
+          <text class="svg-label" x="344" y="555" text-anchor="middle">⌫ Destroy preview</text>
+          <text class="svg-small" x="344" y="575" text-anchor="middle">close · merge · draft · TTL → verify absent</text>
+
+          <path class="connector-dashed" d="M 462 476 H 542 V 136 H 576"></path>
+          <text class="svg-small" x="508" y="460" text-anchor="middle">every main push</text>
+
+          <rect class="node staging-node" x="578" y="102" width="204" height="68" rx="8"></rect>
+          <text class="svg-label" x="680" y="127" text-anchor="middle">↻ Exactly one open PR</text>
+          <text class="svg-small" x="680" y="147" text-anchor="middle">main → deploy/staging</text>
+          <text class="svg-small" x="680" y="163" text-anchor="middle">create or update; never duplicate</text>
+
+          <path class="connector" d="M 680 170 V 199"></path>
+          <polygon class="gate" points="680,199 724,243 680,287 636,243" stroke="#9a6500"></polygon>
+          <text class="svg-label" x="680" y="238" text-anchor="middle">Human</text>
+          <text class="svg-small" x="680" y="256" text-anchor="middle">merges PR</text>
+
+          <path class="connector" d="M 680 287 V 316"></path>
+          <rect class="node staging-node" x="578" y="318" width="204" height="78" rx="8"></rect>
+          <text class="svg-label" x="680" y="343" text-anchor="middle">Turbo selects affected</text>
+          <text class="svg-small" x="680" y="363" text-anchor="middle">build deployables once</text>
+          <text class="svg-small" x="680" y="381" text-anchor="middle">publish immutable artifacts</text>
+
+          <path class="connector" d="M 680 396 V 425"></path>
+          <rect class="node staging-node" x="578" y="427" width="204" height="78" rx="8"></rect>
+          <text class="svg-label" x="680" y="452" text-anchor="middle">▤ Signed manifest</text>
+          <text class="svg-small" x="680" y="472" text-anchor="middle">source SHA · digests · stacks</text>
+          <text class="svg-small" x="680" y="490" text-anchor="middle">Changesets release notes</text>
+
+          <path class="connector" d="M 680 505 V 534"></path>
+          <rect class="node staging-node" x="578" y="536" width="204" height="64" rx="8"></rect>
+          <text class="svg-label" x="680" y="561" text-anchor="middle">✓ Pulumi staging</text>
+          <text class="svg-small" x="680" y="581" text-anchor="middle">affected stacks + verification</text>
+
+          <path class="connector-dashed" d="M 782 568 H 870 V 136 H 896"></path>
+          <text class="svg-small" x="835" y="550" text-anchor="middle">only after success</text>
+
+          <rect class="node production-node" x="898" y="102" width="204" height="68" rx="8"></rect>
+          <text class="svg-label" x="1000" y="127" text-anchor="middle">↻ Exactly one open PR</text>
+          <text class="svg-small" x="1000" y="147" text-anchor="middle">deploy/staging → deploy/production</text>
+          <text class="svg-small" x="1000" y="163" text-anchor="middle">create or update; never duplicate</text>
+
+          <path class="connector" d="M 1000 170 V 199"></path>
+          <polygon class="gate" points="1000,199 1044,243 1000,287 956,243" stroke="#287a44"></polygon>
+          <text class="svg-label" x="1000" y="238" text-anchor="middle">Human</text>
+          <text class="svg-small" x="1000" y="256" text-anchor="middle">merges PR</text>
+
+          <path class="connector" d="M 1000 287 V 326"></path>
+          <rect class="node production-node" x="898" y="328" width="204" height="92" rx="8"></rect>
+          <text class="svg-label" x="1000" y="353" text-anchor="middle">⇧ Resolve staging manifest</text>
+          <text class="svg-note" x="1000" y="375" text-anchor="middle">NO REBUILD</text>
+          <text class="svg-small" x="1000" y="395" text-anchor="middle">no affected recalculation</text>
+          <text class="svg-small" x="1000" y="412" text-anchor="middle">reuse exact artifacts</text>
+
+          <path class="connector" d="M 1000 420 V 459"></path>
+          <rect class="node production-node" x="898" y="461" width="204" height="74" rx="8"></rect>
+          <text class="svg-label" x="1000" y="487" text-anchor="middle">✓ Pulumi production</text>
+          <text class="svg-small" x="1000" y="507" text-anchor="middle">manifest-recorded stacks</text>
+          <text class="svg-small" x="1000" y="524" text-anchor="middle">exact staging candidate</text>
+
+          <rect class="node neutral-node" x="898" y="557" width="204" height="43" rx="8"></rect>
+          <text class="svg-small" x="1000" y="583" text-anchor="middle">Rollback → previous successful manifest</text>
+          <path class="connector-dashed" d="M 1000 535 V 555"></path>
+        </svg>
+
+        <svg class="workflow-svg workflow-mobile" viewBox="0 0 390 1140" role="img" aria-labelledby="mobile-title mobile-desc">
+          <title id="mobile-title">Mobile deployment promotion workflow</title>
+          <desc id="mobile-desc">A vertical version of the workflow from local development through preview and main, staging build and manifest, and production promotion without rebuilding.</desc>
+          <defs>
+            <marker id="arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#65707c"></path>
+            </marker>
+          </defs>
+          <style>
+            .m-connector { fill: none; stroke: #65707c; stroke-width: 2; marker-end: url(#arrow-mobile); }
+            .m-dashed { fill: none; stroke: #65707c; stroke-width: 1.75; stroke-dasharray: 6 5; marker-end: url(#arrow-mobile); }
+          </style>
+
+          <rect x="12" y="12" width="366" height="390" rx="9" fill="#f7fbff" stroke="#2674b8" stroke-width="2"></rect>
+          <text class="svg-stage" x="32" y="45">1 · Feature / main</text>
+          <text class="svg-small" x="32" y="65">Develop, preview, review, integrate</text>
+          <rect class="node neutral-node" x="32" y="85" width="145" height="54" rx="7"></rect>
+          <text class="svg-label" x="104" y="108" text-anchor="middle">⌘ Local dev</text>
+          <text class="svg-small" x="104" y="127" text-anchor="middle">production-shaped</text>
+          <path class="m-connector" d="M 177 112 H 211"></path>
+          <rect class="node feature-node" x="213" y="85" width="145" height="54" rx="7"></rect>
+          <text class="svg-label" x="285" y="108" text-anchor="middle">⑂ Feature branch</text>
+          <text class="svg-small" x="285" y="127" text-anchor="middle">ordinary PR source</text>
+          <path class="m-connector" d="M 285 139 V 164"></path>
+          <rect class="node feature-node" x="213" y="166" width="145" height="61" rx="7"></rect>
+          <text class="svg-label" x="285" y="190" text-anchor="middle">PR → main</text>
+          <text class="svg-small" x="285" y="210" text-anchor="middle">Changeset required</text>
+          <path class="m-connector" d="M 213 196 H 179"></path>
+          <rect class="node neutral-node" x="32" y="166" width="145" height="78" rx="7"></rect>
+          <text class="svg-label" x="104" y="190" text-anchor="middle">✓ CI + Turbo graph</text>
+          <text class="svg-small" x="104" y="210" text-anchor="middle">affected tasks</text>
+          <text class="svg-small" x="104" y="228" text-anchor="middle">+ transitive dependents</text>
+          <path class="m-connector" d="M 104 244 V 267"></path>
+          <rect class="node feature-node" x="32" y="269" width="145" height="61" rx="7"></rect>
+          <text class="svg-label" x="104" y="293" text-anchor="middle">◫ PR preview</text>
+          <text class="svg-small" x="104" y="313" text-anchor="middle">affected + capable</text>
+          <path class="m-connector" d="M 177 299 H 211"></path>
+          <rect class="node feature-node" x="213" y="269" width="145" height="61" rx="7"></rect>
+          <text class="svg-label" x="285" y="293" text-anchor="middle">Human merge → main</text>
+          <text class="svg-note" x="285" y="313" text-anchor="middle">NO SHARED DEPLOY</text>
+          <path class="m-dashed" d="M 104 330 V 360 H 211"></path>
+          <rect class="node danger-node" x="213" y="346" width="145" height="42" rx="7"></rect>
+          <text class="svg-small" x="285" y="372" text-anchor="middle">⌫ Destroy + verify absent</text>
+
+          <path class="m-dashed" d="M 285 330 V 430"></path>
+          <rect x="12" y="420" width="366" height="385" rx="9" fill="#fffbef" stroke="#9a6500" stroke-width="2"></rect>
+          <text class="svg-stage" x="32" y="455">2 · Staging</text>
+          <text class="svg-small" x="32" y="475">Build once, publish, verify candidate</text>
+          <rect class="node staging-node" x="54" y="495" width="282" height="58" rx="7"></rect>
+          <text class="svg-label" x="195" y="518" text-anchor="middle">↻ Exactly one PR: main → deploy/staging</text>
+          <text class="svg-small" x="195" y="538" text-anchor="middle">every main push creates or updates it</text>
+          <path class="m-connector" d="M 195 553 V 576"></path>
+          <rect class="node staging-node" x="54" y="578" width="282" height="58" rx="7"></rect>
+          <text class="svg-label" x="195" y="602" text-anchor="middle">Human merges promotion PR</text>
+          <text class="svg-small" x="195" y="621" text-anchor="middle">the only staging deploy trigger</text>
+          <path class="m-connector" d="M 195 636 V 659"></path>
+          <rect class="node staging-node" x="54" y="661" width="282" height="62" rx="7"></rect>
+          <text class="svg-label" x="195" y="685" text-anchor="middle">Turbo affected → build once</text>
+          <text class="svg-small" x="195" y="705" text-anchor="middle">immutable artifacts + signed manifest</text>
+          <path class="m-connector" d="M 195 723 V 746"></path>
+          <rect class="node staging-node" x="54" y="748" width="282" height="43" rx="7"></rect>
+          <text class="svg-label" x="195" y="775" text-anchor="middle">✓ Pulumi staging + verification</text>
+
+          <path class="m-dashed" d="M 195 791 V 833"></path>
+          <rect x="12" y="823" width="366" height="305" rx="9" fill="#f4fbf6" stroke="#287a44" stroke-width="2"></rect>
+          <text class="svg-stage" x="32" y="858">3 · Production</text>
+          <text class="svg-small" x="32" y="878">Promote exact successful staging candidate</text>
+          <rect class="node production-node" x="43" y="898" width="304" height="58" rx="7"></rect>
+          <text class="svg-label" x="195" y="921" text-anchor="middle">↻ Exactly one PR: staging → production</text>
+          <text class="svg-small" x="195" y="941" text-anchor="middle">created or updated after staging success</text>
+          <path class="m-connector" d="M 195 956 V 979"></path>
+          <rect class="node production-node" x="43" y="981" width="304" height="58" rx="7"></rect>
+          <text class="svg-label" x="195" y="1005" text-anchor="middle">Human merges promotion PR</text>
+          <text class="svg-small" x="195" y="1024" text-anchor="middle">the only production deploy trigger</text>
+          <path class="m-connector" d="M 195 1039 V 1062"></path>
+          <rect class="node production-node" x="43" y="1064" width="304" height="50" rx="7"></rect>
+          <text class="svg-label" x="195" y="1087" text-anchor="middle">✓ Pulumi promotes exact manifest</text>
+          <text class="svg-note" x="195" y="1105" text-anchor="middle">NO REBUILD · NO RECALCULATION</text>
+        </svg>
+
+        <div class="legend" aria-label="Diagram legend">
+          <span class="legend-item"><span class="swatch feature" aria-hidden="true"></span> Feature / main</span>
+          <span class="legend-item"><span class="swatch staging" aria-hidden="true"></span> Staging</span>
+          <span class="legend-item"><span class="swatch production" aria-hidden="true"></span> Production</span>
+          <span class="legend-item"><span class="swatch human" aria-hidden="true"></span> Human approval</span>
+          <span class="legend-item">↻ Controller-maintained PR</span>
+          <span class="legend-item">✓ Automated verification</span>
+        </div>
+      </figure>
+    </section>
+
+    <section id="rules" aria-labelledby="rules-heading">
+      <h2 id="rules-heading">Three rules keep promotion predictable</h2>
+      <div class="rule-grid">
+        <article class="rule stage-stripe-feature">
+          <span class="number" aria-hidden="true">1</span>
+          <h3><code>main</code> integrates; it does not deploy</h3>
+          <p>Ordinary PRs get disposable previews. Merging to <code>main</code> updates integration state, versions, and the single staging PR—never a shared environment.</p>
+        </article>
+        <article class="rule stage-stripe-staging">
+          <span class="number" aria-hidden="true">2</span>
+          <h3>Staging creates the release candidate</h3>
+          <p>A human merges the promotion PR. Turborepo selects affected deployables, they build once, and Pulumi deploys the manifest-recorded staging stacks.</p>
+        </article>
+        <article class="rule stage-stripe-production">
+          <span class="number" aria-hidden="true">3</span>
+          <h3>Production promotes evidence, not source</h3>
+          <p>A human merges the production PR. Automation resolves the successful staging manifest and reuses its exact artifacts without a rebuild or affected recalculation.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="matrix" aria-labelledby="matrix-heading">
+      <h2 id="matrix-heading">Branch and environment matrix</h2>
+      <div class="table-wrap" tabindex="0" aria-label="Scrollable branch and environment matrix">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Branch or event</th>
+              <th scope="col">Purpose</th>
+              <th scope="col">Shared deploy?</th>
+              <th scope="col">Artifact behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Local workspace</td>
+              <td>Production-shaped development loop; SST may help local DX but does not own shared state.</td>
+              <td class="no">No</td>
+              <td>Shared Dockerfiles, entrypoints, config schemas, contracts, migrations, and gateway aliases.</td>
+            </tr>
+            <tr>
+              <td>Feature PR → <code>main</code></td>
+              <td>Review, checks, Changeset intent, affected selection, and ephemeral preview.</td>
+              <td>Preview only</td>
+              <td>Disposable build from tested PR SHA; never promoted to production.</td>
+            </tr>
+            <tr>
+              <td>Merge to <code>main</code></td>
+              <td>Integration; controller creates or updates the one staging PR.</td>
+              <td class="no">No</td>
+              <td>No shared artifact build or environment deployment.</td>
+            </tr>
+            <tr>
+              <td>Version PR → <code>main</code></td>
+              <td>Changesets versions, changelogs, notes, and durable release-plan reference.</td>
+              <td class="no">No</td>
+              <td>Canonical metadata becomes part of candidate source SHA.</td>
+            </tr>
+            <tr>
+              <td><code>main</code> → <code>deploy/staging</code></td>
+              <td>Single protected promotion PR; human merge is the staging trigger.</td>
+              <td class="yes">Staging on merge</td>
+              <td>Build affected deployables once; publish immutable artifacts and manifest.</td>
+            </tr>
+            <tr>
+              <td><code>deploy/staging</code> → <code>deploy/production</code></td>
+              <td>Single protected promotion PR, maintained only after staging succeeds.</td>
+              <td class="yes">Production on merge</td>
+              <td>Reuse successful staging manifest and exact artifacts; no rebuild.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="mechanics" aria-labelledby="mechanics-heading">
+      <h2 id="mechanics-heading">What each control contributes</h2>
+      <div class="support-grid">
+        <article class="support-card">
+          <h3>Turborepo · affected selection</h3>
+          <p>The package and task graph selects deployables and transitive dependents. Lockfiles, infrastructure, migrations, schemas, and gateway contracts are modeled inputs. Unknown changes fail closed by selecting all deployables.</p>
+        </article>
+        <article class="support-card">
+          <h3>Changesets · mandatory intent</h3>
+          <p>Every meaningful PR carries a Changeset. True no-release work uses an explicit empty Changeset or approved exemption. Generated notes and the release plan travel into the immutable manifest.</p>
+        </article>
+        <article class="support-card">
+          <h3>Pulumi · authoritative GCP state</h3>
+          <p>Pulumi owns shared staging and production state. SST is optional and bounded to local or ephemeral DX; it does not replace environment branches, the manifest, or the lifecycle controller.</p>
+        </article>
+        <article class="support-card">
+          <h3>Protected branches · human gates</h3>
+          <p>No direct commits land on environment branches. Automation maintains one open PR per hop; a human-approved merge is the only deployment trigger for each shared environment.</p>
+        </article>
+        <article class="support-card">
+          <h3>Preview reconciler · disposable proof</h3>
+          <p>Internal non-draft PRs receive affected, preview-capable environments. Close, merge, draft, TTL expiry, or failed admission causes idempotent teardown plus absence verification.</p>
+        </article>
+        <article class="support-card">
+          <h3>Signed manifest · promotion contract</h3>
+          <p>The successful staging record fixes the source SHA, affected deployables, artifact digests, migration assets, release notes, and environment stack lists. Production reads this contract.</p>
+        </article>
+      </div>
+
+      <div class="manifest-layout" style="margin-top: 20px;">
+        <div>
+          <h3>Affected query boundaries</h3>
+          <pre><code># Preview
+base = merge-base(PR head, main)
+head = tested PR merge SHA
+
+# Staging
+base = source SHA in last successful staging manifest
+head = candidate source SHA from main
+
+turbo query affected --tasks deploy --base &lt;base&gt; --head &lt;head&gt;</code></pre>
+        </div>
+        <div class="support-card">
+          <h3>Production deliberately does not query</h3>
+          <ul class="manifest-list">
+            <li>No branch-diff recalculation</li>
+            <li>No cache-based inference</li>
+            <li>No build step</li>
+            <li>Only manifest-recorded artifacts and stacks</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="manifest-heading">
+      <h2 id="manifest-heading">The immutable handoff</h2>
+      <div class="manifest-layout">
+        <div>
+          <p>A successful staging promotion writes a signed manifest keyed to the candidate <code>sourceSha</code>. Artifact references use immutable digests or hashes—not mutable tags.</p>
+          <pre><code>{
+  "sourceSha": "abcdef",
+  "affectedDeployables": ["web", "api"],
+  "artifacts": {
+    "web": { "bundleUri": "gs://…", "sha256": "…" },
+    "api": { "imageDigest": "…@sha256:…" }
+  },
+  "pulumiStacks": {
+    "staging": ["web-staging", "api-staging"],
+    "production": ["web-production", "api-production"]
+  },
+  "changesets": ["green-llamas-jump"],
+  "status": "succeeded"
+}</code></pre>
+        </div>
+        <aside class="support-card" aria-labelledby="manifest-contains-heading">
+          <h3 id="manifest-contains-heading">Promotion evidence</h3>
+          <ul class="manifest-list">
+            <li>Candidate source SHA</li>
+            <li>Affected deployable IDs</li>
+            <li>Images, bundles, and migration assets</li>
+            <li>Staging and production Pulumi stacks</li>
+            <li>Changesets and generated release notes</li>
+            <li>Build run identity and success status</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section id="example" aria-labelledby="example-heading">
+      <h2 id="example-heading">Worked example</h2>
+      <div class="worked-example">
+        <div class="example-input">
+          <h3>PR changes</h3>
+          <ul>
+            <li><code>packages/auth</code></li>
+            <li><code>services/api</code></li>
+            <li>One Changeset</li>
+          </ul>
+        </div>
+        <ol class="example-steps">
+          <li>CI validates the Changeset. Turborepo selects <code>services/api</code> plus every deployable transitively dependent on <code>packages/auth</code>.</li>
+          <li>Preview automation creates environments only for affected deployables marked preview-capable.</li>
+          <li>The PR merges to <code>main</code>. The preview is destroyed and verified absent. No shared environment deploys.</li>
+          <li>The Changesets version PR updates canonical versions, changelogs, and the release-plan reference on <code>main</code>.</li>
+          <li>The controller creates or updates the one open <code>main</code> → <code>deploy/staging</code> PR. A human reviews and merges it.</li>
+          <li>Staging builds affected deployables once, publishes immutable artifacts, writes the manifest, and runs affected Pulumi stacks.</li>
+          <li>After staging succeeds, the controller creates or updates the one open production PR. A human merges it.</li>
+          <li>Production deploys the exact staging manifest. It neither rebuilds nor recalculates affected deployables.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="recovery" aria-labelledby="recovery-heading">
+      <h2 id="recovery-heading">Cleanup, failures, and rollback</h2>
+      <div class="failure-box">
+        <div>
+          <h3>Preview and staging</h3>
+          <ul class="failure-list">
+            <li>Preview teardown is idempotent and ends with absence verification.</li>
+            <li>A staging failure does not advance the last successful manifest.</li>
+            <li>Partial deployment fails unless the manifest defines an approved atomicity boundary.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Production and data</h3>
+          <ul class="failure-list">
+            <li>Retry the same manifest for transient production failures.</li>
+            <li>Rollback redeploys the previous successful application and infrastructure manifest—without rebuilding.</li>
+            <li><strong>Database recovery rolls forward by default.</strong> There is no automatic database rollback. Down migrations require explicit, tested support; irreversible changes require approval and a recovery plan.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="local-heading">
+      <h2 id="local-heading">Local paved path</h2>
+      <p>The root workflow should expose a small, stable command surface while sharing production build and configuration contracts.</p>
+      <pre><code>platform doctor
+platform dev &lt;project-or-group&gt;
+platform check --affected</code></pre>
+    </section>
+
+    <section aria-labelledby="sources-heading">
+      <h2 id="sources-heading">Source material</h2>
+      <div class="source-links">
+        <a href="deployment-workflow-target.md">Proposed target: monorepo development and deployment workflow</a>
+        <a href="deployment-workflow-visual-guide.md">Deployment Workflow Visual Guide</a>
+        <a href="https://linear.app/foundai/issue/TECH-652/review-paved-path-deployments-and-define-unified-deployment">Linear TECH-652</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">Pulumi authoritative · Turborepo selected · Changesets required · Build once · Promote by manifest</div>
+  </footer>
+</body>
+</html>
