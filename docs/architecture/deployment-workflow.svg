@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" role="img" aria-labelledby="title description">
+  <title id="title">Found deployment promotion workflow</title>
+  <desc id="description">Engineers develop locally and open pull requests with Changesets, Turborepo checks, and ephemeral previews. Merging to main performs no shared deployment. Automation maintains exactly one pull request from main to deploy/staging; a human merge builds once and deploys staging through Pulumi. After staging succeeds, automation maintains exactly one pull request from deploy/staging to deploy/production; a human merge promotes the exact staging manifest through Pulumi without rebuilding. Preview cleanup and manifest rollback are also shown.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#65707c"/>
+    </marker>
+    <style>
+      text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; fill: #212529; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #4f5965; }
+      .lane-title { font-size: 22px; font-weight: 700; }
+      .lane-subtitle { font-size: 14px; fill: #4f5965; }
+      .label { font-size: 16px; font-weight: 700; }
+      .small { font-size: 13px; fill: #46515c; }
+      .emphasis { font-size: 14px; font-weight: 700; }
+      .node { stroke-width: 1.5; rx: 8; }
+      .neutral { fill: #ffffff; stroke: #7b8794; }
+      .main { fill: #eaf3fc; stroke: #2674b8; }
+      .staging { fill: #fff4d6; stroke: #9a6500; }
+      .production { fill: #e8f5ec; stroke: #287a44; }
+      .warning { fill: #fff0ed; stroke: #b63d26; }
+      .line { fill: none; stroke: #65707c; stroke-width: 2; marker-end: url(#arrow); }
+      .dashed { fill: none; stroke: #65707c; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .gate { fill: #ffffff; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="930" fill="#f8f9fa"/>
+  <text class="title" x="40" y="48">Deployment promotion workflow</text>
+  <text class="subtitle" x="40" y="76">Integrate on main. Build once in staging. Promote the proven manifest to production.</text>
+
+  <!-- Workflow lanes -->
+  <rect x="30" y="105" width="670" height="610" rx="10" fill="#f7fbff" stroke="#2674b8" stroke-width="2"/>
+  <rect x="720" y="105" width="410" height="610" rx="10" fill="#fffbef" stroke="#9a6500" stroke-width="2"/>
+  <rect x="1150" y="105" width="420" height="610" rx="10" fill="#f4fbf6" stroke="#287a44" stroke-width="2"/>
+
+  <text class="lane-title" x="55" y="140">1. Engineer flow and main</text>
+  <text class="lane-subtitle" x="55" y="163">Develop, preview, review, integrate — no shared deployment</text>
+  <text class="lane-title" x="745" y="140">2. Staging</text>
+  <text class="lane-subtitle" x="745" y="163">Human-gated build and verification</text>
+  <text class="lane-title" x="1175" y="140">3. Production</text>
+  <text class="lane-subtitle" x="1175" y="163">Human-gated promotion of exact evidence</text>
+
+  <!-- Engineer flow -->
+  <rect class="node neutral" x="55" y="195" width="180" height="76"/>
+  <text class="label" x="145" y="224" text-anchor="middle">Local development</text>
+  <text class="small" x="145" y="247" text-anchor="middle">production-shaped path</text>
+  <text class="small" x="145" y="264" text-anchor="middle">doctor · dev · check</text>
+
+  <path class="line" d="M235 233H272"/>
+  <rect class="node main" x="274" y="195" width="180" height="76"/>
+  <text class="label" x="364" y="224" text-anchor="middle">Feature PR → main</text>
+  <text class="small" x="364" y="247" text-anchor="middle">reviewed change</text>
+  <text class="small" x="364" y="264" text-anchor="middle">Changeset required</text>
+
+  <path class="line" d="M454 233H491"/>
+  <rect class="node neutral" x="493" y="185" width="180" height="96"/>
+  <text class="label" x="583" y="214" text-anchor="middle">CI + Turborepo</text>
+  <text class="small" x="583" y="237" text-anchor="middle">affected task graph</text>
+  <text class="small" x="583" y="256" text-anchor="middle">lint · test · build · policy</text>
+  <text class="small" x="583" y="275" text-anchor="middle">transitive dependents</text>
+
+  <path class="line" d="M583 281V320"/>
+  <rect class="node main" x="493" y="322" width="180" height="76"/>
+  <text class="label" x="583" y="351" text-anchor="middle">Ephemeral preview</text>
+  <text class="small" x="583" y="374" text-anchor="middle">affected + capable only</text>
+  <text class="small" x="583" y="391" text-anchor="middle">clickable PR environment</text>
+
+  <path class="line" d="M493 360H434"/>
+  <polygon class="gate" points="364,310 414,360 364,410 314,360" stroke="#2674b8"/>
+  <text class="label" x="364" y="355" text-anchor="middle">Human</text>
+  <text class="small" x="364" y="375" text-anchor="middle">merges PR</text>
+
+  <path class="line" d="M314 360H237"/>
+  <rect class="node main" x="55" y="317" width="180" height="86"/>
+  <text class="label" x="145" y="345" text-anchor="middle">main</text>
+  <text class="emphasis" x="145" y="370" text-anchor="middle" fill="#004f9f">NO SHARED DEPLOY</text>
+  <text class="small" x="145" y="392" text-anchor="middle">integration + versions only</text>
+
+  <!-- Preview cleanup -->
+  <path class="dashed" d="M583 398V447"/>
+  <rect class="node warning" x="468" y="449" width="230" height="72"/>
+  <text class="label" x="583" y="477" text-anchor="middle">Preview cleanup</text>
+  <text class="small" x="583" y="499" text-anchor="middle">close · merge · draft · TTL</text>
+  <text class="small" x="583" y="516" text-anchor="middle">destroy, then verify absence</text>
+
+  <!-- Main controller and staging promotion -->
+  <path class="dashed" d="M145 403V690H710V234H744"/>
+  <text class="small" x="400" y="682" text-anchor="middle">every main push creates or updates the promotion candidate</text>
+
+  <rect class="node staging" x="746" y="190" width="358" height="88"/>
+  <text class="label" x="925" y="218" text-anchor="middle">EXACTLY ONE auto PR</text>
+  <text class="emphasis" x="925" y="244" text-anchor="middle">main → deploy/staging</text>
+  <text class="small" x="925" y="265" text-anchor="middle">create or update; never duplicate</text>
+  <path class="line" d="M925 278V312"/>
+
+  <polygon class="gate" points="925,312 979,366 925,420 871,366" stroke="#9a6500"/>
+  <text class="label" x="925" y="355" text-anchor="middle">Human merge</text>
+  <text class="small" x="925" y="376" text-anchor="middle">deploys staging</text>
+  <text class="small" x="925" y="394" text-anchor="middle">only staging trigger</text>
+  <path class="line" d="M925 420V452"/>
+
+  <rect class="node staging" x="746" y="454" width="358" height="96"/>
+  <text class="label" x="925" y="481" text-anchor="middle">Turborepo selects affected</text>
+  <text class="emphasis" x="925" y="506" text-anchor="middle">BUILD ONCE</text>
+  <text class="small" x="925" y="527" text-anchor="middle">immutable artifacts + Changesets notes</text>
+  <text class="small" x="925" y="545" text-anchor="middle">signed release manifest</text>
+  <path class="line" d="M925 550V579"/>
+
+  <rect class="node staging" x="746" y="581" width="358" height="84"/>
+  <text class="label" x="925" y="611" text-anchor="middle">Pulumi deploys staging</text>
+  <text class="small" x="925" y="634" text-anchor="middle">manifest-recorded affected stacks</text>
+  <text class="small" x="925" y="652" text-anchor="middle">verification must succeed</text>
+
+  <!-- Production promotion -->
+  <path class="dashed" d="M1104 623H1178V234H1202"/>
+  <text class="small" x="1144" y="608" text-anchor="middle">after success</text>
+
+  <rect class="node production" x="1204" y="190" width="340" height="88"/>
+  <text class="label" x="1374" y="218" text-anchor="middle">EXACTLY ONE auto PR</text>
+  <text class="emphasis" x="1374" y="244" text-anchor="middle">deploy/staging → deploy/production</text>
+  <text class="small" x="1374" y="265" text-anchor="middle">create or update; never duplicate</text>
+  <path class="line" d="M1374 278V312"/>
+
+  <polygon class="gate" points="1374,312 1428,366 1374,420 1320,366" stroke="#287a44"/>
+  <text class="label" x="1374" y="355" text-anchor="middle">Human merge</text>
+  <text class="small" x="1374" y="376" text-anchor="middle">promotes to production</text>
+  <text class="small" x="1374" y="394" text-anchor="middle">only production trigger</text>
+  <path class="line" d="M1374 420V452"/>
+
+  <rect class="node production" x="1204" y="454" width="340" height="96"/>
+  <text class="label" x="1374" y="481" text-anchor="middle">Resolve exact staging manifest</text>
+  <text class="emphasis" x="1374" y="506" text-anchor="middle">NO REBUILD · NO RECALCULATION</text>
+  <text class="small" x="1374" y="529" text-anchor="middle">same digests · bundles · migrations</text>
+  <text class="small" x="1374" y="547" text-anchor="middle">same release notes · same stack list</text>
+  <path class="line" d="M1374 550V579"/>
+
+  <rect class="node production" x="1204" y="581" width="340" height="84"/>
+  <text class="label" x="1374" y="611" text-anchor="middle">Pulumi deploys production</text>
+  <text class="small" x="1374" y="634" text-anchor="middle">exact staging candidate</text>
+  <text class="small" x="1374" y="652" text-anchor="middle">manifest-recorded stacks only</text>
+
+  <!-- Supporting responsibilities and recovery -->
+  <rect x="30" y="740" width="1540" height="160" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text class="lane-title" x="55" y="775">Controls, cleanup, and recovery</text>
+
+  <rect class="node neutral" x="55" y="798" width="290" height="76"/>
+  <text class="label" x="200" y="826" text-anchor="middle">Turborepo</text>
+  <text class="small" x="200" y="849" text-anchor="middle">affected task graph + dependents</text>
+  <text class="small" x="200" y="867" text-anchor="middle">unknown changes fail closed</text>
+
+  <rect class="node neutral" x="365" y="798" width="290" height="76"/>
+  <text class="label" x="510" y="826" text-anchor="middle">Changesets</text>
+  <text class="small" x="510" y="849" text-anchor="middle">release intent + generated notes</text>
+  <text class="small" x="510" y="867" text-anchor="middle">notes travel in the manifest</text>
+
+  <rect class="node neutral" x="675" y="798" width="290" height="76"/>
+  <text class="label" x="820" y="826" text-anchor="middle">Pulumi</text>
+  <text class="small" x="820" y="849" text-anchor="middle">authoritative shared GCP state</text>
+  <text class="small" x="820" y="867" text-anchor="middle">affected stacks only</text>
+
+  <rect class="node warning" x="985" y="792" width="560" height="92"/>
+  <text class="label" x="1265" y="818" text-anchor="middle">Failure and rollback</text>
+  <text class="small" x="1265" y="840" text-anchor="middle">Staging failure keeps the last successful manifest</text>
+  <text class="small" x="1265" y="858" text-anchor="middle">Production retries the same manifest or redeploys the previous success</text>
+  <text class="small" x="1265" y="876" text-anchor="middle">Database recovery rolls forward by default; never automatically back</text>
+</svg>
